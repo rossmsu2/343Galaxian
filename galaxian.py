@@ -9,7 +9,7 @@ import time
 # this class is the background of the game
 class Overlay(pygame.sprite.Sprite):
 
-    # this function initializes the background and sets
+    # this function initializes the overlay and sets
     # the font and text
     def __init__(self):
         super(pygame.sprite.Sprite, self).__init__()
@@ -19,7 +19,7 @@ class Overlay(pygame.sprite.Sprite):
         self.render('Score: 0        Lives: 5')
 
     # this function takes the given text and gives it
-    # the proper font and color
+    # the proper color
     def render(self, text):
         self.text = self.font.render(text, True, (255, 255, 255))
         self.image.blit(self.text, self.rect)
@@ -40,7 +40,7 @@ class Ship(pygame.sprite.Sprite):
     # an image and starting location
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.image.load('assets/playerShip1_green.png')
+        self.image = pygame.image.load('assets/player.png')
         self.rect = self.image.get_rect()
         self.rect.x = 320
         self.rect.y = 650
@@ -51,10 +51,6 @@ class Ship(pygame.sprite.Sprite):
     def draw(self, screen):
         screen.blit(self.image, self.rect)
 
-    # this function plays the lose sound
-    def death(self):
-        self.lose_sound.play()
-
 
 # this class governs the enemy ships
 class Enemy(pygame.sprite.Sprite):
@@ -63,7 +59,7 @@ class Enemy(pygame.sprite.Sprite):
     # giving them an image and a horizontal speed
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.image.load('assets/enemyBlack2.png')
+        self.image = pygame.image.load('assets/enemy.png')
         self.rect = self.image.get_rect()
         self.vector = [1, 0]
 
@@ -80,53 +76,64 @@ class Projectile(pygame.sprite.Sprite):
     # speed and a collision sound
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.image.load('assets/laserRed03.png')
+        self.image = pygame.image.load('assets/playerLaser.png')
         self.rect = self.image.get_rect()
         self.vector = [0, -7]
+        self.shot_sound = pygame.mixer.Sound('assets/playerShotSound.wav')
         self.thud_sound = pygame.mixer.Sound('assets/HITTHEM.wav')
 
-    # this function checks for projectile collisions and
-    # location. if the projectile is too high it is removed.
-    # if it hits an enemy it gives the hit sound and kills
-    # the enemy. it also gives you a point. then the projectile's
-    # location is updated
+    # this function checks for projectile location.
+    # if the projectile is too high it is removed.
+    # then the projectile's location is updated.
     def update(self, game, enemies):
         if self.rect.y < 0:
             game.projectiles.remove(self)
-        hitObject = pygame.sprite.spritecollideany(self, enemies)
-        if hitObject:
-            self.thud_sound.play()
-            hitObject.kill()
-            game.projectiles.remove(self)
-            game.score += 1
         self.rect.y += self.vector[1]
 
 
-# this class governs the enemy's projectiles
-class EnemyProjectile(pygame.sprite.Sprite):
+# this class governs the enemy's blaster projectiles
+class EnemyBlasters(pygame.sprite.Sprite):
 
-    # this function initializes the projectiles
+    # this function initializes the blasters
     # it gives them an image, a vertical motion
     # and a sound
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.image.load('assets/laserBlue03.png')
+        self.image = pygame.image.load('assets/enemyBlaster.png')
         self.rect = self.image.get_rect()
         self.vector = [0, 7]
+        self.shot_sound = pygame.mixer.Sound('assets/enemyBlasterSound.wav')
+        self.thud_sound = pygame.mixer.Sound('assets/meh im hit.wav')
+
+    # this function checks for blaster location.
+    # if the blaster is too low it is removed.
+    # then the blaster's location is updated.
+    def update(self, game):
+        if self.rect.y > 700:
+            game.enemyBlasters.remove(self)
+        self.rect.y += self.vector[1]
+
+
+# this class governs the enemy's laser projectiles
+class EnemyLasers(pygame.sprite.Sprite):
+
+    # this function initializes the lasers
+    # it gives them an image, a vertical motion
+    # and a sound
+    def __init__(self):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = pygame.image.load('assets/enemyLaser.png')
+        self.rect = self.image.get_rect()
+        self.vector = [0, 4]
+        self.shot_sound = pygame.mixer.Sound('assets/enemyLaserSound.mp3')
         self.thud_sound = pygame.mixer.Sound('assets/IMHIT.wav')
 
-    # this function checks for projectile collisions and
-    # location. if the projectile is too low it is removed.
-    # if it hits the player ship, the player loses a life.
-    # then the projectile's location is updated
-    def update(self, game, ship):
+    # this function checks for laser location.
+    # if the laser is too low it is removed.
+    # then the laser's location is updated.
+    def update(self, game):
         if self.rect.y > 700:
-            game.enemyProjectiles.remove(self)
-        hitObject = pygame.sprite.collide_rect(self, ship)
-        if hitObject:
-            self.thud_sound.play()
-            game.lives -= 1
-            game.enemyProjectiles.remove(self)
+            game.enemyLasers.remove(self)
         self.rect.y += self.vector[1]
 
 
@@ -145,24 +152,56 @@ class Game:
         pygame.mixer.music.load('assets/background_sound.wav')
         pygame.mixer.music.play(-1)
         self.clock = pygame.time.Clock()
-        self.screen = pygame.display.set_mode((700, 700))
-        self.enemyProjectiles = pygame.sprite.Group()
+        self.screen = pygame.display.set_mode((800, 700))
+        self.enemyBlasters = pygame.sprite.Group()
+        self.enemyLasers = pygame.sprite.Group()
         self.projectiles = pygame.sprite.Group()
         self.ship = Ship()
         self.new_life_event = pygame.event.Event(pygame.USEREVENT + 1)
         self.enemies = pygame.sprite.Group()
         self.overlay = Overlay()
+        self.intro = Intro()
         self.screen.fill((0, 0, 0))
         self.score = 0
         self.lives = 5
         self.timeBetweenShots = 0
         self.canIShoot = True
-        for i in range(1, 10):
-            for j in range(1, 10):
+        for i in range(1, 11):
+            for j in range(1, 11):
                 enemy = Enemy()
                 enemy.rect.x = j * 40
                 enemy.rect.y = i * 25
                 self.enemies.add(enemy)
+
+    # this function runs the intro
+    def introduction(self):
+        self.intro.draw(self.screen)
+        self.intro.render("There are a few rules:")
+        self.intro.updateLocation()
+        self.intro.draw(self.screen)
+        self.intro.render("1. Try to destroy all of the enemy ships")
+        self.intro.updateLocation()
+        self.intro.draw(self.screen)
+        self.intro.render("2. If you are hit by a blue enemy blaster "
+                          "you lose one life")
+        self.intro.updateLocation()
+        self.intro.draw(self.screen)
+        self.intro.render("3. If you are hit by a green enemy laser "
+                          "you lose two lives")
+        self.intro.updateLocation()
+        self.intro.draw(self.screen)
+        self.intro.render("4. HAVE FUN!")
+        self.intro.updateLocation()
+        self.intro.draw(self.screen)
+        pygame.display.flip()
+        time.sleep(10)
+        self.intro.render("THE GAME BEGINS NOW")
+        self.intro.updateLocation()
+        self.intro.updateLocation()
+        self.intro.updateLocation()
+        self.intro.draw(self.screen)
+        pygame.display.flip()
+        time.sleep(2)
 
     # this function runs the actual game.
     def run(self):
@@ -188,12 +227,20 @@ class Game:
                 # too far left we need to change movement
                 if enemy.rect.x <= 0:
                     move = True
-                # random shot check
+                # random blaster check
                 if random.randint(0, 1000) < 1:
-                    enemyProjectile = EnemyProjectile()
-                    enemyProjectile.rect.x = enemy.rect.x
-                    enemyProjectile.rect.y = enemy.rect.y
-                    self.enemyProjectiles.add(enemyProjectile)
+                    enemyBlaster = EnemyBlasters()
+                    enemyBlaster.rect.x = enemy.rect.x
+                    enemyBlaster.rect.y = enemy.rect.y
+                    self.enemyBlasters.add(enemyBlaster)
+                    enemyBlaster.shot_sound.play()
+                # random laser check
+                if random.randint(0, 10000) < 2:
+                    enemyLaser = EnemyLasers()
+                    enemyLaser.rect.x = enemy.rect.x
+                    enemyLaser.rect.y = enemy.rect.y
+                    self.enemyLasers.add(enemyLaser)
+                    enemyLaser.shot_sound.play()
                 # too far down you lose
                 if enemy.rect.y >= 650:
                     self.ship.lose_sound.play()
@@ -209,7 +256,7 @@ class Game:
                     enemy.rect.y += 25
             # check if we are dead, if so end game
             if self.lives < 1:
-                self.ship.death()
+                self.ship.lose_sound.play()
                 time.sleep(3)
                 pygame.quit()
                 sys.exit(0)
@@ -224,6 +271,7 @@ class Game:
                     projectile.rect.x = self.ship.rect.x + 10
                     projectile.rect.y = self.ship.rect.y - 10
                     self.projectiles.add(projectile)
+                    projectile.shot_sound.play()
             # LEFT ARROW
             if keys[pygame.K_LEFT]:
                 # move left
@@ -248,21 +296,41 @@ class Game:
                 if event.type == pygame.QUIT:
                     self.done = True
 
+            # check for enemy hits
+            for enemy in self.enemies:
+                hitObject = pygame.sprite.spritecollideany(enemy, self.projectiles)
+                if hitObject:
+                    game.enemies.remove(enemy)
+                    projectile.thud_sound.play()
+                    self.projectiles.remove(hitObject)
+                    game.score += 1
+
+            # check if you got hit
+            hitObject = pygame.sprite.spritecollideany(self.ship, self.enemyBlasters)
+            if hitObject:
+                enemyBlaster.thud_sound.play()
+                self.enemyBlasters.remove(hitObject)
+                game.lives -= 1
+            hitObject = pygame.sprite.spritecollideany(self.ship, self.enemyLasers)
+            if hitObject:
+                enemyLaser.thud_sound.play()
+                self.enemyLasers.remove(hitObject)
+                game.lives -= 2
+
             # update everything's location and visuals
             self.projectiles.update(self, self.enemies)
-            self.enemyProjectiles.update(self, self.ship)
+            self.enemyBlasters.update(self)
+            self.enemyLasers.update(self)
             self.overlay.update(self.score, self.lives)
             self.enemies.update()
             self.projectiles.draw(self.screen)
-            self.enemyProjectiles.draw(self.screen)
+            self.enemyBlasters.draw(self.screen)
+            self.enemyLasers.draw(self.screen)
             self.ship.draw(self.screen)
             self.enemies.draw(self.screen)
             self.overlay.draw(self.screen)
 
-            # flip to the new updated screen
-            pygame.display.flip()
-
-            # and to shot check timer
+            # add to shot check timer
             self.timeBetweenShots += self.clock.tick(60)
 
             # check if we can shoot yet
@@ -275,8 +343,41 @@ class Game:
                 self.timeBetweenShots = 0
                 self.canIShoot = True
 
+            # flip to the new updated screen
+            pygame.display.flip()
+
+
+# this class is the game intro
+class Intro(pygame.sprite.Sprite):
+
+    # this function initializes the font
+    def __init__(self):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = pygame.Surface((800, 700))
+        self.rect = self.image.get_rect()
+        self.rect.x = 0
+        self.rect.y = 0
+        self.vector = [0, 30]
+        self.font = pygame.font.Font('freesansbold.ttf', 25)
+        self.render("Welcome to Galaxian")
+
+    # this function gives the text the proper color
+    def render(self, text):
+        self.text = self.font.render(text, True, (255, 255, 255))
+        self.image.blit(self.text, self.rect)
+
+    # this function prints the text to the screen
+    def draw(self, screen):
+        screen.blit(self.text, self.rect)
+
+    # this function is basically \n to get the text
+    # to a new line
+    def updateLocation(self):
+        self.rect.y += self.vector[1]
+
 
 # run 'er
 if __name__ == "__main__":
     game = Game()
+    game.introduction()
     game.run()
